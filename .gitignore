@@ -1,0 +1,20 @@
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Prototype build artifacts
+tauri-prototype/node_modules
+tauri-prototype/dist
+tauri-prototype/src-tauri/target
+
+example_anims/
+hkxc-anno-cli.exe
+hkxc.exe
+hkxc-anno-gui.exe
