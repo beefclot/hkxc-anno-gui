@@ -158,14 +158,8 @@ function App() {
     }
   }
 
-  const handleCloseTab = async (annoPath: string) => {
-    // Delete the annotation file
-    try {
-      await invoke('cleanup_annotation', { annoPath })
-    } catch (error) {
-      console.warn('Failed to cleanup annotation file:', error)
-    }
-    
+  const handleCloseTab = (annoPath: string) => {
+    // No cleanup needed - files are in memory only
     setTabs(prev => {
       const newTabs = prev.filter(t => t.annoPath !== annoPath)
       if (activeTabId === annoPath && newTabs.length > 0) {
@@ -216,36 +210,7 @@ function App() {
     }
   }, [])
 
-  // Cleanup on app close - using ref to avoid dependency issues
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      // Use ref to get current tabs without adding to dependencies
-      const currentTabs = tabsRef.current
-      if (currentTabs.length > 0) {
-        const annoPaths = currentTabs.map(t => t.annoPath)
-        // Note: beforeunload may not wait for async, so this is best-effort
-        invoke('cleanup_all_annotations', { annoPaths }).catch(err => {
-          console.warn('Failed to cleanup annotations on exit:', err)
-        })
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    
-    // Cleanup when component unmounts (app closes)
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      
-      // Cleanup all annotation files on unmount
-      const currentTabs = tabsRef.current
-      if (currentTabs.length > 0) {
-        const annoPaths = currentTabs.map(t => t.annoPath)
-        invoke('cleanup_all_annotations', { annoPaths }).catch(err => {
-          console.warn('Failed to cleanup annotations on unmount:', err)
-        })
-      }
-    }
-  }, []) // Empty dependency array - only run on mount/unmount
+  // No cleanup needed on app close - files are kept in memory only
 
   return (
     <div className={`app ${isDragging ? 'dragging' : ''}`}>

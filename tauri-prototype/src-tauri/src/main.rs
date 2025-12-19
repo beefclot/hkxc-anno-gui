@@ -15,7 +15,7 @@ struct AnnotationFile {
 }
 
 // Get the CLI executable path
-fn get_cli_path(app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
+fn get_cli_path(_app_handle: &tauri::AppHandle) -> Result<PathBuf, String> {
     let cli_name = "hkxc-anno-cli.exe";
     
     // Check 1: Current working directory
@@ -67,18 +67,24 @@ fn collect_hkx_files(input_paths: &[String]) -> Result<Vec<PathBuf>, String> {
     let mut hkx_files = Vec::new();
     
     for input_path in input_paths {
-        let path = Path::new(input_path);
+        // Tauri provides absolute paths for dropped files
+        // Convert string to PathBuf directly
+        let path = PathBuf::from(input_path);
         
+        // Verify path exists
         if !path.exists() {
-            return Err(format!("Path does not exist: {}", input_path));
+            return Err(format!("Path does not exist: {}", path.display()));
         }
         
         if path.is_file() {
-            if path.extension().and_then(|s| s.to_str()) == Some("hkx") {
-                hkx_files.push(path.to_path_buf());
+            // Case-insensitive extension check
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                if ext.eq_ignore_ascii_case("hkx") {
+                    hkx_files.push(path);
+                }
             }
         } else if path.is_dir() {
-            visit_dirs(path, &mut hkx_files)?;
+            visit_dirs(&path, &mut hkx_files)?;
         }
     }
     
@@ -96,8 +102,10 @@ fn visit_dirs(dir: &Path, hkx_files: &mut Vec<PathBuf>) -> Result<(), String> {
             
             if path.is_dir() {
                 visit_dirs(&path, hkx_files)?;
-            } else if path.extension().and_then(|s| s.to_str()) == Some("hkx") {
-                hkx_files.push(path);
+            } else if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                if ext.eq_ignore_ascii_case("hkx") {
+                    hkx_files.push(path);
+                }
             }
         }
     }
@@ -115,7 +123,10 @@ async fn dump_annotations(
     let hkx_files = collect_hkx_files(&input)?;
     
     if hkx_files.is_empty() {
-        return Err("No HKX files found in the provided input".to_string());
+        return Err(format!(
+            "No HKX files found in the provided input. Input paths: {:?}",
+            input
+        ));
     }
     
     let mut results = Vec::new();
@@ -151,13 +162,23 @@ async fn dump_annotations(
                 e
             ))?;
         
+        // Immediately delete the .txt file after reading (we have it in memory now)
+        if anno_path.exists() {
+            fs::remove_file(&anno_path)
+                .map_err(|e| format!(
+                    "Failed to delete temporary annotation file {}: {}",
+                    anno_path.display(),
+                    e
+                ))?;
+        }
+        
         let display_name = hkx_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown.hkx")
             .to_string();
         
-        // Add to results
+        // Add to results - anno_path is kept for reference but file is deleted
         results.push(AnnotationFile {
             hkx_path: hkx_path.to_string_lossy().to_string(),
             anno_path: anno_path.to_string_lossy().to_string(),
@@ -193,9 +214,10 @@ async fn update_annotations(
             ));
         }
         
-        // Save updated annotation content to the .txt file
-        fs::write(&file.anno_path, &file.content)
-            .map_err(|e| format!("Failed to write annotation file: {}", e))?;
+        // Create temporary .txt file with updated content
+        let anno_path = PathBuf::from(&file.anno_path);
+        fs::write(&anno_path, &file.content)
+            .map_err(|e| format!("Failed to write temporary annotation file: {}", e))?;
         
         // Run: hkxc-anno-cli update -i <file.hkx> -v <format>
         // CLI will use the .txt file in the same directory (default behavior)
@@ -211,10 +233,21 @@ async fn update_annotations(
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
+            // Clean up temp file on error
+            let _ = fs::remove_file(&anno_path);
             return Err(format!(
                 "Update failed for {}: {}\nOutput: {}",
                 file.display_name, stderr, stdout
             ));
+        }
+        
+        // Delete the temporary .txt file after successful update
+        if anno_path.exists() {
+            fs::remove_file(&anno_path)
+                .map_err(|e| format!(
+                    "Failed to delete temporary annotation file: {}",
+                    e
+                ))?;
         }
         
         total_updated += 1;
@@ -227,11 +260,19 @@ async fn update_annotations(
 async fn cleanup_annotation(
     anno_path: String,
 ) -> Result<(), String> {
-    let path = Path::new(&anno_path);
+    let path = PathBuf::from(&anno_path);
     
-    if path.exists() && path.extension().and_then(|s| s.to_str()) == Some("txt") {
-        fs::remove_file(path)
-            .map_err(|e| format!("Failed to delete annotation file: {}", e))?;
+    if !path.exists() {
+        // File doesn't exist, nothing to clean up
+        return Ok(());
+    }
+    
+    // Check if it's a .txt file (case-insensitive)
+    if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+        if ext.eq_ignore_ascii_case("txt") {
+            fs::remove_file(&path)
+                .map_err(|e| format!("Failed to delete annotation file {}: {}", path.display(), e))?;
+        }
     }
     
     Ok(())
@@ -242,11 +283,18 @@ async fn cleanup_all_annotations(
     anno_paths: Vec<String>,
 ) -> Result<(), String> {
     for anno_path in anno_paths {
-        let path = Path::new(&anno_path);
+        let path = PathBuf::from(&anno_path);
         
-        if path.exists() && path.extension().and_then(|s| s.to_str()) == Some("txt") {
-            // Ignore errors during bulk cleanup
-            let _ = fs::remove_file(path);
+        if path.exists() {
+            // Check if it's a .txt file (case-insensitive)
+            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                if ext.eq_ignore_ascii_case("txt") {
+                    // Ignore errors during bulk cleanup
+                    if let Err(e) = fs::remove_file(&path) {
+                        eprintln!("Warning: Failed to delete {}: {}", path.display(), e);
+                    }
+                }
+            }
         }
     }
     
