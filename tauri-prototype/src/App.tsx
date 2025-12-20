@@ -181,12 +181,24 @@ function App() {
         } else {
           handleSave()
         }
+      } else if (e.ctrlKey && e.key === 'w' || e.key === 'W') {
+        e.preventDefault()
+        if (e.shiftKey) {
+          // Ctrl+Shift+W: Close all tabs
+          setTabs([])
+          setActiveTabId(null)
+        } else {
+          // Ctrl+W: Close current tab
+          if (activeTabId) {
+            handleCloseTab(activeTabId)
+          }
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTab, tabs, format])
+  }, [activeTab, tabs, format, activeTabId])
 
   // Drag and drop listener
   useEffect(() => {
@@ -286,7 +298,7 @@ function App() {
               fontSize: 14,
               lineNumbers: 'on',
               rulers: [80],
-              wordWrap: 'off',
+              wordWrap: 'on',
             }}
           />
         ) : (

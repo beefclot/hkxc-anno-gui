@@ -71,5 +71,7 @@ Your_Mod/
 |----------|--------|
 | `Ctrl+S` | Save current file |
 | `Ctrl+Shift+S` | Save all modified files |
+| `Ctrl+W` | Close current tab |
+| `Ctrl+Shift+W` | Close all tabs |
 | `Ctrl+F` | Find in file |
 | `Ctrl+H` | Find & replace |
