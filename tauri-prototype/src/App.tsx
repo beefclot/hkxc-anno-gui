@@ -17,6 +17,18 @@ interface StatusMessage {
   message: string
 }
 
+interface SearchMatch {
+  line: number
+  column: number
+  text: string
+}
+
+interface SearchResult {
+  tabId: string
+  displayName: string
+  matches: SearchMatch[]
+}
+
 function App() {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
@@ -24,6 +36,14 @@ function App() {
   const [status, setStatus] = useState<StatusMessage>({ type: 'idle', message: 'Ready' })
   const [isDragging, setIsDragging] = useState(false)
   const tabsRef = useRef<Tab[]>([])
+  
+  // Global search state
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchMode, setSearchMode] = useState<'find' | 'replace'>('find')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [replaceQuery, setReplaceQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -171,6 +191,88 @@ function App() {
     })
   }
 
+  // Global search functions
+  const performSearch = (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    const results: SearchResult[] = []
+    const queryLower = query.toLowerCase()
+
+    tabs.forEach(tab => {
+      const lines = tab.content.split('\n')
+      const matches: SearchMatch[] = []
+
+      lines.forEach((line, lineIndex) => {
+        const lineLower = line.toLowerCase()
+        let index = 0
+        while ((index = lineLower.indexOf(queryLower, index)) !== -1) {
+          const contextStart = Math.max(0, index - 30)
+          const contextEnd = Math.min(line.length, index + query.length + 30)
+          matches.push({
+            line: lineIndex + 1,
+            column: index + 1,
+            text: (contextStart > 0 ? '...' : '') + 
+                  line.substring(contextStart, contextEnd) + 
+                  (contextEnd < line.length ? '...' : '')
+          })
+          index += query.length
+        }
+      })
+
+      if (matches.length > 0) {
+        results.push({
+          tabId: tab.annoPath,
+          displayName: tab.displayName,
+          matches
+        })
+      }
+    })
+
+    setSearchResults(results)
+  }
+
+  const handleReplaceAll = () => {
+    if (!searchQuery.trim()) return
+
+    let totalReplacements = 0
+    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(escapedQuery, 'gi')
+
+    setTabs(prev => prev.map(tab => {
+      const matchCount = (tab.content.match(regex) || []).length
+      if (matchCount > 0) {
+        totalReplacements += matchCount
+        return {
+          ...tab,
+          content: tab.content.replace(regex, replaceQuery),
+          modified: true
+        }
+      }
+      return tab
+    }))
+
+    setSearchResults([])
+    setShowSearch(false)
+    showStatus('success', `Replaced ${totalReplacements} occurrence(s) across all files`)
+  }
+
+  const openSearch = (mode: 'find' | 'replace') => {
+    setSearchMode(mode)
+    setShowSearch(true)
+    setSearchQuery('')
+    setReplaceQuery('')
+    setSearchResults([])
+    setTimeout(() => searchInputRef.current?.focus(), 50)
+  }
+
+  const closeSearch = () => {
+    setShowSearch(false)
+    setSearchResults([])
+  }
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -181,7 +283,7 @@ function App() {
         } else {
           handleSave()
         }
-      } else if (e.ctrlKey && e.key === 'w' || e.key === 'W') {
+      } else if (e.ctrlKey && (e.key === 'w' || e.key === 'W')) {
         e.preventDefault()
         if (e.shiftKey) {
           // Ctrl+Shift+W: Close all tabs
@@ -193,12 +295,21 @@ function App() {
             handleCloseTab(activeTabId)
           }
         }
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+        e.preventDefault()
+        openSearch('find')
+      } else if (e.ctrlKey && e.shiftKey && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault()
+        openSearch('replace')
+      } else if (e.key === 'Escape' && showSearch) {
+        e.preventDefault()
+        closeSearch()
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTab, tabs, format, activeTabId])
+  }, [activeTab, tabs, format, activeTabId, showSearch])
 
   // Drag and drop listener
   useEffect(() => {
@@ -275,6 +386,96 @@ function App() {
           </button>
         ))}
       </div>
+
+      {showSearch && (
+        <div className="search-panel">
+          <div className="search-header">
+            <span className="search-title">
+              {searchMode === 'find' ? 'Find in All Files' : 'Find & Replace in All Files'}
+            </span>
+            <button className="search-close" onClick={closeSearch}>×</button>
+          </div>
+          <div className="search-inputs">
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="search-input"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                performSearch(e.target.value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchMode === 'replace') {
+                  handleReplaceAll()
+                }
+              }}
+            />
+            {searchMode === 'replace' && (
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Replace with..."
+                value={replaceQuery}
+                onChange={(e) => setReplaceQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleReplaceAll()
+                  }
+                }}
+              />
+            )}
+          </div>
+          {searchMode === 'replace' && searchQuery && (
+            <button 
+              className="btn btn-replace"
+              onClick={handleReplaceAll}
+              disabled={!searchQuery.trim()}
+            >
+              Replace All ({searchResults.reduce((sum, r) => sum + r.matches.length, 0)})
+            </button>
+          )}
+          {searchResults.length > 0 && (
+            <div className="search-results">
+              <div className="search-results-summary">
+                {searchResults.reduce((sum, r) => sum + r.matches.length, 0)} results in {searchResults.length} file(s)
+              </div>
+              {searchResults.map(result => (
+                <div key={result.tabId} className="search-result-file">
+                  <div 
+                    className="search-result-filename"
+                    onClick={() => {
+                      setActiveTabId(result.tabId)
+                    }}
+                  >
+                    {result.displayName} ({result.matches.length})
+                  </div>
+                  <div className="search-result-matches">
+                    {result.matches.slice(0, 5).map((match, idx) => (
+                      <div 
+                        key={idx} 
+                        className="search-match"
+                        onClick={() => setActiveTabId(result.tabId)}
+                      >
+                        <span className="match-line">Line {match.line}:</span> {match.text}
+                      </div>
+                    ))}
+                    {result.matches.length > 5 && (
+                      <div className="search-match-more">
+                        ...and {result.matches.length - 5} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {searchQuery && searchResults.length === 0 && (
+            <div className="search-no-results">No results found</div>
+          )}
+        </div>
+      )}
 
       <div className="editor-container">
         {isDragging && (

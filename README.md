@@ -73,5 +73,8 @@ Your_Mod/
 | `Ctrl+Shift+S` | Save all modified files |
 | `Ctrl+W` | Close current tab |
 | `Ctrl+Shift+W` | Close all tabs |
-| `Ctrl+F` | Find in file |
-| `Ctrl+H` | Find & replace |
+| `Ctrl+Shift+F` | Find in all files |
+| `Ctrl+Shift+H` | Find & replace in all files |
+| `Ctrl+F` | Find in current file |
+| `Ctrl+H` | Find & replace in current file |
+| `Escape` | Close search panel |
