@@ -391,6 +391,111 @@ body {
   padding: 8px 0;
 }
 
+/* Help Button */
+.btn-help {
+  background: #3c3c3c;
+  padding: 6px 10px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.btn-help:hover {
+  background: #505050;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal {
+  background: #252526;
+  border: 1px solid #3c3c3c;
+  border-radius: 6px;
+  min-width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.modal-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #cccccc;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #858585;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #cccccc;
+}
+
+.modal-content {
+  padding: 20px;
+}
+
+.hotkeys-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.hotkeys-table tr {
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.hotkeys-table tr:last-child {
+  border-bottom: none;
+}
+
+.hotkeys-table td {
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+.hotkeys-table td:first-child {
+  width: 200px;
+  white-space: nowrap;
+}
+
+.hotkeys-table td:last-child {
+  color: #969696;
+}
+
+kbd {
+  background: #3c3c3c;
+  border: 1px solid #505050;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-family: monospace;
+  font-size: 11px;
+  color: #cccccc;
+}
+
 
 
 

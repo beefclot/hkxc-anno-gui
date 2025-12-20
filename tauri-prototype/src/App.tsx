@@ -44,6 +44,9 @@ function App() {
   const [replaceQuery, setReplaceQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const searchInputRef = useRef<HTMLInputElement>(null)
+  
+  // Hotkeys modal state
+  const [showHotkeys, setShowHotkeys] = useState(false)
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -301,15 +304,20 @@ function App() {
       } else if (e.ctrlKey && e.shiftKey && (e.key === 'h' || e.key === 'H')) {
         e.preventDefault()
         openSearch('replace')
-      } else if (e.key === 'Escape' && showSearch) {
-        e.preventDefault()
-        closeSearch()
+      } else if (e.key === 'Escape') {
+        if (showHotkeys) {
+          e.preventDefault()
+          setShowHotkeys(false)
+        } else if (showSearch) {
+          e.preventDefault()
+          closeSearch()
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTab, tabs, format, activeTabId, showSearch])
+  }, [activeTab, tabs, format, activeTabId, showSearch, showHotkeys])
 
   // Drag and drop listener
   useEffect(() => {
@@ -366,6 +374,13 @@ function App() {
           disabled={tabs.filter(t => t.modified).length === 0}
         >
           Save All (Ctrl+Shift+S)
+        </button>
+        <button 
+          className="btn btn-help" 
+          onClick={() => setShowHotkeys(true)}
+          title="Keyboard Shortcuts"
+        >
+          ?
         </button>
       </div>
 
@@ -514,6 +529,32 @@ function App() {
           </div>
         )}
       </div>
+
+      {showHotkeys && (
+        <div className="modal-overlay" onClick={() => setShowHotkeys(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Keyboard Shortcuts</h2>
+              <button className="modal-close" onClick={() => setShowHotkeys(false)}>×</button>
+            </div>
+            <div className="modal-content">
+              <table className="hotkeys-table">
+                <tbody>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>S</kbd></td><td>Save current file</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Save all modified files</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Close current tab</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd></td><td>Close all tabs</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Find in all files</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd></td><td>Find & replace in all files</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd></td><td>Find in current file</td></tr>
+                  <tr><td><kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Find & replace in current file</td></tr>
+                  <tr><td><kbd>Escape</kbd></td><td>Close search panel / modal</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`status-bar ${status.type}`}>
         {status.type === 'loading' && <div className="spinner"></div>}
