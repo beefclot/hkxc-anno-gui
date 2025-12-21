@@ -8,6 +8,8 @@
 *.njsproj
 *.sln
 *.sw?
+node_modules/
+target/
 
 # Prototype build artifacts
 tauri-prototype/node_modules

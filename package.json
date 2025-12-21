@@ -1,0 +1,25 @@
+{
+  "name": "hkxc-anno",
+  "version": "0.0.0",
+  "private": true,
+  "description": "patch",
+  "homepage": "https://github.com/beefclot/hkxc-anno-gui",
+  "license": "GPL3.0",
+  "scripts": {
+    "build": "rimraf ./crates/gui/dist && tauri build -- --profile release-no-lto",
+    "build:release": "rimraf ./crates/gui/dist && tauri build -- --profile release",
+    "build:front": "npm --workspace ./crates/gui run build",
+    "build:icons": "tauri icon ./crates/gui/src-tauri/icons/icon.svg",
+    "tauri:dev": "npm --workspace ./crates/gui run tauri:dev",
+    "tauri": "tauri",
+    "test": "npm --workspace ./crates/gui run test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.9",
+    "rimraf": "6"
+  },
+  "workspaces": [
+    "crates/gui"
+  ],
+  "packageManager": "npm@11.5.2"
+}
