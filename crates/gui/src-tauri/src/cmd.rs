@@ -132,6 +132,6 @@ pub(crate) async fn update_annotations(
 
     Ok(format!(
         "Updated {} file(s)",
-        total_updated.load(Ordering::Relaxed)
+        total_updated.load(Ordering::Relaxed) + 1 // to 1 based index
     ))
 }
