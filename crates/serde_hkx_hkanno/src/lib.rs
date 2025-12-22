@@ -130,7 +130,7 @@ impl<'a> Hkanno<'a> {
             }
         };
 
-        let (num_original_frames, duration, annotation_tracks) = match animation_class {
+        let (_num_original_frames, _duration, annotation_tracks) = match animation_class {
             Classes::hkaAnimation(class) => {
                 (&mut 0, &mut class.m_duration, &mut class.m_annotationTracks)
             }
@@ -162,8 +162,10 @@ impl<'a> Hkanno<'a> {
             _ => return Err(HkannoError::MissingHkaAnimationClass),
         };
 
-        *num_original_frames = self.num_original_frames;
-        *duration = self.duration;
+        // User-provided values (especially from hkanno str, which may be replaced with 0 for comment purposes) cannot be trusted.
+        // Therefore, the following should not be modified.
+        // *num_original_frames = self.num_original_frames;
+        // *duration = self.duration;
 
         *annotation_tracks = self
             .annotation_tracks

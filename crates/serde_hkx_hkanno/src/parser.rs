@@ -39,6 +39,7 @@ impl core::fmt::Display for HkannoParseError {
 /// - Parses zero or more annotation tracks
 /// - Borrows string data directly from `input` where possible
 ///
+/// # Note
 /// Global animation fields such as frame count and duration are currently
 /// left at default values (`0` / `0.0`) and are expected to be filled
 /// elsewhere if needed.
