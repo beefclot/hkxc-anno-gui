@@ -51,6 +51,7 @@ pub mod editor;
 pub mod file_collector;
 mod parser;
 
+use havok_classes::Classes;
 use rayon::prelude::*;
 use serde_hkx_features::ClassMap;
 use snafu::ResultExt as _;
@@ -111,34 +112,60 @@ impl<'a> Hkanno<'a> {
     /// # Errors
     /// If missing/multiple `hkaSplineCompressedAnimation`.
     pub fn write_to_classmap(self, class_map: &mut ClassMap<'a>) -> Result<(), HkannoError> {
-        use havok_classes::Classes;
         use havok_types::StringPtr;
 
-        // Find the spline(s)
-        let mut splines: Vec<_> = class_map
+        let mut animations: Vec<_> = class_map
             .par_iter_mut()
-            .filter(|(_, class)| matches!(class, Classes::hkaSplineCompressedAnimation(_)))
+            .filter(|(_, class)| is_hka_animation_derived(class))
             .collect();
-        #[allow(unused_mut)] // To avoid clippy wrong warning rust 1.91.0
-        let (_, mut spline) = {
-            match splines.len() {
-                0 => return MissingSplineSnafu.fail(),
-                1 => splines.swap_remove(0),
+        let (_, animation_class) = {
+            match animations.len() {
+                0 => return MissingHkaAnimationClassSnafu.fail(),
+                1 => animations.swap_remove(0),
                 _ => {
-                    return Err(HkannoError::MultipleSplinesFound {
-                        count: splines.len(),
+                    return Err(HkannoError::MultipleHkaAnimationFound {
+                        count: animations.len(),
                     })
                 }
             }
         };
-        let Classes::hkaSplineCompressedAnimation(ref mut anim) = spline else {
-            return MissingSplineSnafu.fail();
+
+        let (num_original_frames, duration, annotation_tracks) = match animation_class {
+            Classes::hkaAnimation(class) => {
+                (&mut 0, &mut class.m_duration, &mut class.m_annotationTracks)
+            }
+            Classes::hkaDeltaCompressedAnimation(class) => (
+                &mut 0,
+                &mut class.parent.m_duration,
+                &mut class.parent.m_annotationTracks,
+            ),
+            Classes::hkaInterleavedUncompressedAnimation(class) => (
+                &mut 0,
+                &mut class.parent.m_duration,
+                &mut class.parent.m_annotationTracks,
+            ),
+            Classes::hkaQuantizedAnimation(class) => (
+                &mut 0,
+                &mut class.parent.m_duration,
+                &mut class.parent.m_annotationTracks,
+            ),
+            Classes::hkaSplineCompressedAnimation(class) => (
+                &mut class.m_numFrames,
+                &mut class.parent.m_duration,
+                &mut class.parent.m_annotationTracks,
+            ),
+            Classes::hkaWaveletCompressedAnimation(class) => (
+                &mut 0,
+                &mut class.parent.m_duration,
+                &mut class.parent.m_annotationTracks,
+            ),
+            _ => return Err(HkannoError::MissingHkaAnimationClass),
         };
 
-        anim.m_numFrames = self.num_original_frames;
-        anim.parent.m_duration = self.duration;
+        *num_original_frames = self.num_original_frames;
+        *duration = self.duration;
 
-        anim.parent.m_annotationTracks = self
+        *annotation_tracks = self
             .annotation_tracks
             .into_iter()
             .map(|track| havok_classes::hkaAnnotationTrack {
@@ -281,31 +308,61 @@ impl<'a> fmt::Display for Hkanno<'a> {
 pub fn parse_hkanno_borrowed<'a>(class_map: ClassMap<'a>) -> Result<Hkanno<'a>, HkannoError> {
     use havok_classes::Classes;
 
-    // Find the spline(s)
-    let (ptr, spline) = {
-        let mut splines: Vec<_> = class_map
+    // Find the one `hkaAnimation`
+    let (ptr, animation_class) = {
+        // Find C++ classes that inherit from `hkaAnimation` C++
+        let mut animation_classes: Vec<_> = class_map
             .into_par_iter()
-            .filter(|(_, class)| matches!(class, Classes::hkaSplineCompressedAnimation(_)))
+            .filter(|(_, class)| is_hka_animation_derived(class))
             .collect();
 
-        match splines.len() {
-            0 => return MissingSplineSnafu.fail(),
-            1 => splines.swap_remove(0),
+        match animation_classes.len() {
+            0 => return MissingHkaAnimationClassSnafu.fail(),
+            1 => animation_classes.swap_remove(0),
             _ => {
-                return Err(HkannoError::MultipleSplinesFound {
-                    count: splines.len(),
+                return Err(HkannoError::MultipleHkaAnimationFound {
+                    count: animation_classes.len(),
                 })
             }
         }
     };
 
-    let Classes::hkaSplineCompressedAnimation(anim) = spline else {
-        return Err(HkannoError::MissingSpline);
+    const FPS: f32 = 30.0;
+    let (num_original_frames, duration, annotation_tracks): (f32, _, _) = match animation_class {
+        Classes::hkaAnimation(class) => (
+            class.m_duration * FPS,
+            class.m_duration,
+            class.m_annotationTracks,
+        ),
+        Classes::hkaDeltaCompressedAnimation(class) => (
+            class.parent.m_duration * FPS,
+            class.parent.m_duration,
+            class.parent.m_annotationTracks,
+        ),
+        Classes::hkaInterleavedUncompressedAnimation(class) => (
+            class.parent.m_duration * FPS,
+            class.parent.m_duration,
+            class.parent.m_annotationTracks,
+        ),
+        Classes::hkaQuantizedAnimation(class) => (
+            class.parent.m_duration * FPS,
+            class.parent.m_duration,
+            class.parent.m_annotationTracks,
+        ),
+        Classes::hkaSplineCompressedAnimation(class) => (
+            class.m_numFrames as f32,
+            class.parent.m_duration,
+            class.parent.m_annotationTracks,
+        ),
+        Classes::hkaWaveletCompressedAnimation(class) => (
+            class.parent.m_duration * FPS,
+            class.parent.m_duration,
+            class.parent.m_annotationTracks,
+        ),
+        _ => return Err(HkannoError::MissingHkaAnimationClass),
     };
 
-    let tracks = anim
-        .parent
-        .m_annotationTracks
+    let tracks = annotation_tracks
         .into_par_iter()
         .map(|track| {
             let annotations = track
@@ -325,10 +382,23 @@ pub fn parse_hkanno_borrowed<'a>(class_map: ClassMap<'a>) -> Result<Hkanno<'a>, 
 
     Ok(Hkanno {
         ptr,
-        num_original_frames: anim.m_numFrames,
-        duration: anim.parent.m_duration,
+        num_original_frames: num_original_frames as i32,
+        duration,
         annotation_tracks: tracks,
     })
+}
+
+/// Does this class inherit from `hkaAnimation`?
+fn is_hka_animation_derived(class: &Classes<'_>) -> bool {
+    matches!(
+        class,
+        Classes::hkaAnimation(_)
+            | Classes::hkaDeltaCompressedAnimation(_)
+            | Classes::hkaInterleavedUncompressedAnimation(_)
+            | Classes::hkaQuantizedAnimation(_)
+            | Classes::hkaSplineCompressedAnimation(_)
+            | Classes::hkaWaveletCompressedAnimation(_)
+    )
 }
 
 /// Parses a HKX or XML file into an `Hkanno` structure directly from raw bytes.
@@ -397,13 +467,11 @@ pub enum HkannoError {
         source: serde_hkx_features::error::Error,
     },
 
-    /// Raised when the expected animation class was not found.
-    #[snafu(display("No `hkaSplineCompressedAnimation` class found"))]
-    MissingSpline,
+    /// No `hkaAnimation`-derived class found
+    MissingHkaAnimationClass,
 
-    /// Multiple hkaSplineCompressedAnimation classes found.
-    #[snafu(display("expected one `hkaSplineCompressedAnimation` per `hkx`, but multiple were obtained. Got count: {count}"))]
-    MultipleSplinesFound { count: usize },
+    /// expected one `hkaAnimation` per `hkx`, but multiple were obtained. Got count: {count}
+    MultipleHkaAnimationFound { count: usize },
 
     /// Raised when an unsupported I32 variant was encountered.
     #[snafu(display("Unsupported i32 in animation field: {variant}"))]
