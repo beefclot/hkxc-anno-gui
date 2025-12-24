@@ -1,0 +1,34 @@
+[package]
+name = "serde_hkx_hkanno"
+version = "0.1.0"
+description = "Serde serialization for hkanno annotation tracks"
+
+authors.workspace = true
+categories = []
+edition.workspace = true
+keywords = []
+license = ""
+readme = "../../README.md"
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+winnow = "0.7.14"
+rayon = { workspace = true }
+serde = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+# FIXME: Sync your serde-hkx, and then replace there comments
+# havok_classes = { git = "https://github.com/beefclot/serde-hkx", rev = "961233d", default-features = false, features = [
+#   "ignore_duplicates",
+# ] }
+# havok_types = { git = "https://github.com/beefclot/serde-hkx", rev = "961233d", default-features = false }
+# serde_hkx_features = { git = "https://github.com/beefclot/serde-hkx", rev = "961233d", default-features = false }
+
+havok_classes = { git = "https://github.com/SARDONYX-sard/serde-hkx", rev = "961233d", default-features = false, features = [
+  "ignore_duplicates",
+] }
+havok_types = { git = "https://github.com/SARDONYX-sard/serde-hkx", rev = "961233d", default-features = false }
+serde_hkx_features = { git = "https://github.com/SARDONYX-sard/serde-hkx", rev = "961233d", default-features = false }

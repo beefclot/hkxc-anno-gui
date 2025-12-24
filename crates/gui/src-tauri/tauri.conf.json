@@ -7,29 +7,12 @@
     "withGlobalTauri": false
   },
   "package": {
-    "productName": "HKXC Annotation Editor",
+    "productName": "hkxc-anno-gui",
     "version": "0.1.0"
   },
   "tauri": {
     "allowlist": {
       "all": false,
-      "shell": {
-        "all": false,
-        "execute": true,
-        "sidecar": false,
-        "scope": [
-          {
-            "name": "hkxc-anno-cli",
-            "cmd": "hkxc-anno-cli",
-            "args": true
-          },
-          {
-            "name": "hkxc",
-            "cmd": "hkxc",
-            "args": true
-          }
-        ]
-      },
       "dialog": {
         "all": false,
         "open": true,
@@ -38,14 +21,18 @@
       "fs": {
         "all": true,
         "scope": ["**"]
+      },
+      "shell": {
+        "all": false,
+        "execute": false,
+        "open": true,
+        "scope": [],
+        "sidecar": false
       }
     },
     "bundle": {
       "active": false,
-      "icon": [
-        "icons/icon.ico",
-        "icons/icon.png"
-      ],
+      "icon": ["icons/icon.ico", "icons/icon.png"],
       "identifier": "com.hkxc.anno.gui",
       "targets": []
     },
@@ -66,4 +53,3 @@
     ]
   }
 }
-

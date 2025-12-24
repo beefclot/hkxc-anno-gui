@@ -9,6 +9,7 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build && npm run copy-exe",
+    "test": "vitest run",
     "copy-exe": "cmd /c copy \"src-tauri\\target\\release\\HKXC Annotation Editor.exe\" \"..\\hkxc-anno-gui.exe\""
   },
   "dependencies": {
@@ -21,9 +22,9 @@
     "@tauri-apps/cli": "^1.5.9",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^5.1.2",
     "typescript": "^5.3.3",
-    "vite": "^5.0.11"
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16"
   }
 }
-
